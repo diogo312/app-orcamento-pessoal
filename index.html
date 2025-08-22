@@ -30,6 +30,25 @@
         #budget-modal.flex {
             display: flex;
         }
+        .theme-switch {
+            display: inline-flex; align-items: center;
+            background-color: #e2e8f0; /* slate-200 */
+            border-radius: 9999px; padding: 4px;
+            cursor: pointer; position: relative;
+        }
+        .dark .theme-switch { background-color: #334155; } /* slate-700 */
+        .theme-switch-icon {
+            width: 24px; height: 24px; display: flex;
+            align-items: center; justify-content: center;
+            color: #64748b; /* slate-500 */
+        }
+        .theme-switch-toggle {
+            width: 24px; height: 24px; border-radius: 50%;
+            background-color: white;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+        }
+        .dark .theme-switch-toggle { transform: translateX(32px); }
     </style>
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -53,6 +72,11 @@
                 <i class="fa-solid fa-calendar-alt text-blue-600"></i>
                 Visão Anual
             </h1>
+            <div id="theme-switch" class="theme-switch">
+                <div class="theme-switch-icon"><i class="fas fa-sun"></i></div>
+                <div class="theme-switch-icon"><i class="fas fa-moon"></i></div>
+                <div class="theme-switch-toggle absolute"></div>
+            </div>
         </header>
 
         <div class="flex justify-between items-center mb-6">
@@ -94,7 +118,6 @@
             </header>
             
             <div class="overflow-y-auto p-4">
-                <!-- Conteúdo do App de Orçamento vai aqui -->
                 <section class="grid md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
                         <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Entradas</h3>
@@ -143,10 +166,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // --- CORREÇÃO APLICADA AQUI ---
-        // As credenciais do Firebase são inseridas diretamente no código.
+        // Configuração do Firebase a partir das variáveis de ambiente da plataforma
         const firebaseConfig = {
             apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
             authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
@@ -154,10 +176,8 @@
             storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
             messagingSenderId: "660712250343",
             appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
-        }
+      };
         
-        const appId = "default-app-id";
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -187,6 +207,8 @@
         const annualIncomeEl = document.getElementById('annual-income');
         const annualExpenseEl = document.getElementById('annual-expense');
         const annualBalanceEl = document.getElementById('annual-balance');
+        const themeSwitch = document.getElementById('theme-switch');
+        const htmlEl = document.documentElement;
 
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -209,10 +231,9 @@
             expenseListEl.innerHTML = '';
             monthlyTransactions.forEach(transaction => {
                 const { id, description, amount } = transaction;
-                const type = amount < 0 ? 'expense' : 'income';
                 const transactionEl = document.createElement('li');
                 transactionEl.classList.add('bg-white', 'dark:bg-slate-700', 'p-4', 'rounded-lg', 'shadow-sm', 'flex', 'justify-between', 'items-center');
-                const amountColor = type === 'income' ? 'text-green-600' : 'text-red-600';
+                const amountColor = amount > 0 ? 'text-green-600' : 'text-red-600';
                 transactionEl.innerHTML = `
                     <span class="font-medium text-slate-700 dark:text-slate-300">${description}</span>
                     <div class="flex items-center space-x-3">
@@ -220,7 +241,7 @@
                         <button onclick="window.removeTransaction('${id}')" class="text-slate-400 hover:text-red-600">&times;</button>
                     </div>
                 `;
-                const listEl = type === 'income' ? incomeListEl : expenseListEl;
+                const listEl = amount > 0 ? incomeListEl : expenseListEl;
                 listEl.appendChild(transactionEl);
             });
         }
@@ -231,11 +252,12 @@
             const amount = parseFloat(amountInput.value.trim());
             if (description === '' || isNaN(amount)) return;
 
-            const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+            const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
                 amount,
+                type: amount > 0 ? 'income' : 'expense',
                 year: currentYear,
                 month: currentMonth,
                 createdAt: serverTimestamp()
@@ -245,7 +267,7 @@
         }
 
         window.removeTransaction = async function(id) {
-            const transactionRef = doc(db, 'artifacts', appId, 'users', userId, 'transactions', id);
+            const transactionRef = doc(db, 'budgets', userId, 'transactions', id);
             await deleteDoc(transactionRef);
         }
         
@@ -312,10 +334,34 @@
             budgetModal.classList.remove('flex');
         });
 
+        themeSwitch.addEventListener('click', () => {
+            if (htmlEl.classList.contains('dark')) {
+                htmlEl.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                htmlEl.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        async function authenticateUser() {
+            try {
+                const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (authToken) {
+                    await signInWithCustomToken(auth, authToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Erro na autenticação:", error);
+                loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação.</p>`;
+            }
+        }
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
-                const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+                const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
                 const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
 
                 onSnapshot(q, (snapshot) => {
@@ -325,11 +371,7 @@
                 });
 
             } else {
-                // Para o ambiente de pré-visualização, o login anônimo é a melhor abordagem
-                signInAnonymously(auth).catch(error => {
-                    console.error("Erro no login anônimo:", error);
-                    loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação. Verifique o console.</p>`;
-                });
+                authenticateUser();
             }
         });
 

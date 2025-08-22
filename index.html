@@ -71,15 +71,15 @@
             <div class="grid md:grid-cols-3 gap-6">
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
                     <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Entradas no Ano</h3>
-                    <p id="annual-income" class="text-3xl font-bold text-green-500 mt-2">Calculando...</p>
+                    <p id="annual-income" class="text-3xl font-bold text-green-500 mt-2">R$ 0,00</p>
                 </div>
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
                     <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saídas no Ano</h3>
-                    <p id="annual-expense" class="text-3xl font-bold text-red-500 mt-2">Calculando...</p>
+                    <p id="annual-expense" class="text-3xl font-bold text-red-500 mt-2">R$ 0,00</p>
                 </div>
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
                     <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saldo Anual</h3>
-                    <p id="annual-balance" class="text-3xl font-bold text-slate-700 dark:text-slate-200 mt-2">Calculando...</p>
+                    <p id="annual-balance" class="text-3xl font-bold text-slate-700 dark:text-slate-200 mt-2">R$ 0,00</p>
                 </div>
             </div>
         </section>
@@ -143,20 +143,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // ▼▼▼ COLE AQUI O OBJETO firebaseConfig QUE VOCÊ COPIOU ▼▼▼
-        const firebaseConfig = {
-            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-            projectId: "meu-orcamento-app-30e7f",
-            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-            messagingSenderId: "660712250343",
-            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
-        };
-        // ▲▲▲ COLE AQUI O OBJETO firebaseConfig QUE VOCÊ COPIOU ▲▲▲
-
-        const appId = "default-app-id";
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -166,6 +158,7 @@
         let unsubscribe = null;
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
+        let allTransactions = [];
 
         // DOM Elements
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -188,16 +181,14 @@
         const annualExpenseEl = document.getElementById('annual-expense');
         const annualBalanceEl = document.getElementById('annual-balance');
 
-
-        let transactions = [];
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
         function formatCurrency(value) {
             return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
-        function updateSummary() {
-            const amounts = transactions.map(t => t.amount);
+        function updateMonthlySummary(monthlyTransactions) {
+            const amounts = monthlyTransactions.map(t => t.amount);
             const totalIncome = amounts.filter(item => item > 0).reduce((acc, item) => (acc + item), 0);
             const totalExpense = amounts.filter(item => item < 0).reduce((acc, item) => (acc + item), 0);
             const balance = totalIncome + totalExpense;
@@ -205,29 +196,26 @@
             totalExpenseEl.innerText = formatCurrency(Math.abs(totalExpense));
             balanceEl.innerText = formatCurrency(balance);
         }
-
-        function addTransactionDOM(transaction) {
-            const { id, description, amount } = transaction;
-            const type = amount < 0 ? 'expense' : 'income';
-            const transactionEl = document.createElement('li');
-            transactionEl.classList.add('bg-white', 'dark:bg-slate-700', 'p-4', 'rounded-lg', 'shadow-sm', 'flex', 'justify-between', 'items-center');
-            const amountColor = type === 'income' ? 'text-green-600' : 'text-red-600';
-            transactionEl.innerHTML = `
-                <span class="font-medium text-slate-700 dark:text-slate-300">${description}</span>
-                <div class="flex items-center space-x-3">
-                    <span class="font-bold ${amountColor}">${formatCurrency(amount)}</span>
-                    <button onclick="window.removeTransaction('${id}')" class="text-slate-400 hover:text-red-600">&times;</button>
-                </div>
-            `;
-            const listEl = type === 'income' ? incomeListEl : expenseListEl;
-            listEl.appendChild(transactionEl);
-        }
-
-        function initUI() {
+        
+        function renderMonthlyTransactions(monthlyTransactions) {
             incomeListEl.innerHTML = '';
             expenseListEl.innerHTML = '';
-            transactions.forEach(addTransactionDOM);
-            updateSummary();
+            monthlyTransactions.forEach(transaction => {
+                const { id, description, amount } = transaction;
+                const type = amount < 0 ? 'expense' : 'income';
+                const transactionEl = document.createElement('li');
+                transactionEl.classList.add('bg-white', 'dark:bg-slate-700', 'p-4', 'rounded-lg', 'shadow-sm', 'flex', 'justify-between', 'items-center');
+                const amountColor = type === 'income' ? 'text-green-600' : 'text-red-600';
+                transactionEl.innerHTML = `
+                    <span class="font-medium text-slate-700 dark:text-slate-300">${description}</span>
+                    <div class="flex items-center space-x-3">
+                        <span class="font-bold ${amountColor}">${formatCurrency(amount)}</span>
+                        <button onclick="window.removeTransaction('${id}')" class="text-slate-400 hover:text-red-600">&times;</button>
+                    </div>
+                `;
+                const listEl = type === 'income' ? incomeListEl : expenseListEl;
+                listEl.appendChild(transactionEl);
+            });
         }
 
         async function handleAddTransaction(e) {
@@ -236,12 +224,13 @@
             const amount = parseFloat(amountInput.value.trim());
             if (description === '' || isNaN(amount)) return;
 
-            const monthStr = (currentMonth + 1).toString().padStart(2, '0');
-            const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, currentYear.toString(), monthStr, 'transactions');
+            const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
                 amount,
+                year: currentYear,
+                month: currentMonth, // 0-11
                 createdAt: serverTimestamp()
             });
             descriptionInput.value = '';
@@ -249,60 +238,29 @@
         }
 
         window.removeTransaction = async function(id) {
-            const monthStr = (currentMonth + 1).toString().padStart(2, '0');
-            const transactionRef = doc(db, 'artifacts', appId, 'users', userId, currentYear.toString(), monthStr, 'transactions', id);
+            const transactionRef = doc(db, 'artifacts', appId, 'users', userId, 'transactions', id);
             await deleteDoc(transactionRef);
         }
-
-        function listenToTransactions(year, month) {
-            if (unsubscribe) unsubscribe();
-            
-            const monthStr = (month + 1).toString().padStart(2, '0');
-            const collectionPath = collection(db, 'artifacts', appId, 'users', userId, year.toString(), monthStr, 'transactions');
-            const q = query(collectionPath, orderBy('createdAt', 'desc'));
-            
-            unsubscribe = onSnapshot(q, snapshot => {
-                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                initUI();
-            });
-        }
-
+        
         function openMonthModal(year, monthIndex) {
             currentMonth = monthIndex;
             currentYear = year;
             modalTitle.innerText = `Orçamento de ${monthNames[monthIndex]} de ${year}`;
-            listenToTransactions(year, monthIndex);
+            
+            const monthlyTransactions = allTransactions.filter(t => t.year === year && t.month === monthIndex);
+            
+            renderMonthlyTransactions(monthlyTransactions);
+            updateMonthlySummary(monthlyTransactions);
+            
             budgetModal.classList.add('flex');
         }
 
-        async function updateAnnualSummary(year) {
-            annualIncomeEl.innerText = 'Calculando...';
-            annualExpenseEl.innerText = 'Calculando...';
-            annualBalanceEl.innerText = 'Calculando...';
-
-            let totalAnnualIncome = 0;
-            let totalAnnualExpense = 0;
-
-            const monthPromises = [];
-            for (let month = 0; month < 12; month++) {
-                const monthStr = (month + 1).toString().padStart(2, '0');
-                const collectionPath = collection(db, 'artifacts', appId, 'users', userId, year.toString(), monthStr, 'transactions');
-                monthPromises.push(getDocs(collectionPath));
-            }
-
-            const monthlySnapshots = await Promise.all(monthPromises);
-
-            monthlySnapshots.forEach(snapshot => {
-                snapshot.forEach(doc => {
-                    const amount = doc.data().amount || 0;
-                    if (amount > 0) {
-                        totalAnnualIncome += amount;
-                    } else {
-                        totalAnnualExpense += amount;
-                    }
-                });
-            });
+        function updateAnnualSummary(year) {
+            const yearTransactions = allTransactions.filter(t => t.year === year);
+            const amounts = yearTransactions.map(t => t.amount);
             
+            const totalAnnualIncome = amounts.filter(item => item > 0).reduce((acc, item) => (acc + item), 0);
+            const totalAnnualExpense = amounts.filter(item => item < 0).reduce((acc, item) => (acc + item), 0);
             const totalAnnualBalance = totalAnnualIncome + totalAnnualExpense;
 
             annualIncomeEl.innerText = formatCurrency(totalAnnualIncome);
@@ -345,9 +303,6 @@
 
         closeModalBtn.addEventListener('click', () => {
             budgetModal.classList.remove('flex');
-            if (unsubscribe) unsubscribe();
-            transactions = [];
-            initUI();
         });
 
         async function authenticateUser() {
@@ -367,8 +322,23 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
-                renderCalendar(currentYear);
-                loadingOverlay.style.display = 'none';
+                const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+                const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
+
+                onSnapshot(q, (snapshot) => {
+                    allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderCalendar(currentYear); // Renderiza o calendário e o resumo anual
+                    
+                    // Se um modal estiver aberto, atualiza seus dados também
+                    if (budgetModal.classList.contains('flex')) {
+                        const monthlyTransactions = allTransactions.filter(t => t.year === currentYear && t.month === currentMonth);
+                        renderMonthlyTransactions(monthlyTransactions);
+                        updateMonthlySummary(monthlyTransactions);
+                    }
+
+                    loadingOverlay.style.display = 'none';
+                });
+
             } else {
                 authenticateUser();
             }

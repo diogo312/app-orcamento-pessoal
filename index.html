@@ -143,22 +143,29 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : {};
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // --- CORREÇÃO APLICADA AQUI ---
+        // As credenciais do Firebase são inseridas diretamente no código.
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+            projectId: "meu-orcamento-app-30e7f",
+            storageBucket: "meu-orcamento-app-30e7f.appspot.com",
+            messagingSenderId: "660712250343",
+            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+        };
+        
+        const appId = "default-app-id";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
         let userId = null;
-        let unsubscribe = null;
+        let allTransactions = []; 
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
-        let allTransactions = [];
 
         // DOM Elements
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -230,7 +237,7 @@
                 description,
                 amount,
                 year: currentYear,
-                month: currentMonth, // 0-11
+                month: currentMonth,
                 createdAt: serverTimestamp()
             });
             descriptionInput.value = '';
@@ -305,20 +312,6 @@
             budgetModal.classList.remove('flex');
         });
 
-        async function authenticateUser() {
-            try {
-                const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                if (authToken) {
-                    await signInWithCustomToken(auth, authToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Erro na autenticação:", error);
-                loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação.</p>`;
-            }
-        }
-
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
@@ -327,20 +320,16 @@
 
                 onSnapshot(q, (snapshot) => {
                     allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderCalendar(currentYear); // Renderiza o calendário e o resumo anual
-                    
-                    // Se um modal estiver aberto, atualiza seus dados também
-                    if (budgetModal.classList.contains('flex')) {
-                        const monthlyTransactions = allTransactions.filter(t => t.year === currentYear && t.month === currentMonth);
-                        renderMonthlyTransactions(monthlyTransactions);
-                        updateMonthlySummary(monthlyTransactions);
-                    }
-
+                    renderCalendar(currentYear);
                     loadingOverlay.style.display = 'none';
                 });
 
             } else {
-                authenticateUser();
+                // Para o ambiente de pré-visualização, o login anônimo é a melhor abordagem
+                signInAnonymously(auth).catch(error => {
+                    console.error("Erro no login anônimo:", error);
+                    loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação. Verifique o console.</p>`;
+                });
             }
         });
 

@@ -23,24 +23,18 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
-        #budget-modal {
-            display: none;
-            transition: opacity 0.3s ease;
-        }
-        #budget-modal.flex {
-            display: flex;
-        }
+        #budget-modal { display: none; transition: opacity 0.3s ease; }
+        #budget-modal.flex { display: flex; }
         .theme-switch {
             display: inline-flex; align-items: center;
-            background-color: #e2e8f0; /* slate-200 */
-            border-radius: 9999px; padding: 4px;
+            background-color: #e2e8f0; border-radius: 9999px; padding: 4px;
             cursor: pointer; position: relative;
         }
-        .dark .theme-switch { background-color: #334155; } /* slate-700 */
+        .dark .theme-switch { background-color: #334155; }
         .theme-switch-icon {
             width: 24px; height: 24px; display: flex;
             align-items: center; justify-content: center;
-            color: #64748b; /* slate-500 */
+            color: #64748b;
         }
         .theme-switch-toggle {
             width: 24px; height: 24px; border-radius: 50%;
@@ -49,6 +43,17 @@
             transition: transform 0.3s ease;
         }
         .dark .theme-switch-toggle { transform: translateX(32px); }
+        /* Estilos para os botões de rádio */
+        .radio-label input[type="radio"] { display: none; }
+        .radio-label span {
+            padding: 8px 16px; border-radius: 9999px; cursor: pointer;
+            transition: all 0.2s ease-in-out; font-weight: 500;
+            border: 1px solid #e5e7eb;
+        }
+        .dark .radio-label span { border-color: #475569; }
+        .radio-label input[type="radio"]:checked + span { color: white; border-color: transparent; }
+        #type-income:checked + span { background-color: #22c55e; }
+        #type-expense:checked + span { background-color: #ef4444; }
     </style>
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -144,6 +149,17 @@
                             <label for="amount" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Valor (R$)</label>
                             <input type="number" step="0.01" id="amount" placeholder="150,50" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
                         </div>
+                        <!-- **CORREÇÃO APLICADA AQUI** -->
+                        <div class="flex justify-center space-x-4 pt-2">
+                            <label class="radio-label">
+                                <input type="radio" id="type-income" name="type" value="income" checked>
+                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Entrada</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" id="type-expense" name="type" value="expense">
+                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Saída</span>
+                            </label>
+                        </div>
                         <button class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Adicionar Transação</button>
                     </form>
                 </section>
@@ -168,15 +184,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Configuração do Firebase a partir das variáveis de ambiente da plataforma
         const firebaseConfig = {
-            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-            projectId: "meu-orcamento-app-30e7f",
-            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-            messagingSenderId: "660712250343",
-            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
-      };
+              apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+              authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+              projectId: "meu-orcamento-app-30e7f",
+              storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
+              messagingSenderId: "660712250343",
+              appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+        };
         
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -249,15 +264,27 @@
         async function handleAddTransaction(e) {
             e.preventDefault();
             const description = descriptionInput.value.trim();
-            const amount = parseFloat(amountInput.value.trim());
-            if (description === '' || isNaN(amount)) return;
+            let amount = parseFloat(amountInput.value.trim());
+            const type = document.querySelector('input[name="type"]:checked').value;
+
+            if (description === '' || isNaN(amount) || amount <= 0) {
+                alert('Por favor, preencha a descrição e um valor positivo.');
+                return;
+            }
+
+            // **CORREÇÃO APLICADA AQUI**
+            if (type === 'expense') {
+                amount = -Math.abs(amount); // Garante que o valor seja negativo
+            } else {
+                amount = Math.abs(amount); // Garante que o valor seja positivo
+            }
 
             const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
                 amount,
-                type: amount > 0 ? 'income' : 'expense',
+                type: type,
                 year: currentYear,
                 month: currentMonth,
                 createdAt: serverTimestamp()

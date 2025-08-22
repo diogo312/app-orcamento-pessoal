@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Orçamento</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6"/>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .month-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .month-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        #budget-modal {
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+        #budget-modal.flex {
+            display: flex;
+        }
+    </style>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-80 flex flex-col items-center justify-center z-50">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-white text-lg mt-4">Conectando...</p>
+    </div>
+
+    <!-- TELA PRINCIPAL DO CALENDÁRIO -->
+    <div id="calendar-view" class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                <i class="fa-solid fa-calendar-alt text-blue-600"></i>
+                Visão Anual
+            </h1>
+        </header>
+
+        <div class="flex justify-between items-center mb-6">
+            <button id="prev-year-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><i class="fas fa-chevron-left"></i></button>
+            <h2 id="current-year-title" class="text-2xl font-bold">2025</h2>
+            <button id="next-year-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div id="calendar-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Os meses serão gerados aqui pelo JS -->
+        </div>
+
+        <!-- PAINEL DE RESUMO ANUAL -->
+        <section id="annual-summary" class="mt-12">
+            <h2 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Resumo do Ano</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Entradas no Ano</h3>
+                    <p id="annual-income" class="text-3xl font-bold text-green-500 mt-2">Calculando...</p>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saídas no Ano</h3>
+                    <p id="annual-expense" class="text-3xl font-bold text-red-500 mt-2">Calculando...</p>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saldo Anual</h3>
+                    <p id="annual-balance" class="text-3xl font-bold text-slate-700 dark:text-slate-200 mt-2">Calculando...</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- MODAL DO ORÇAMENTO MENSAL -->
+    <div id="budget-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center p-4">
+        <div class="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col">
+            <header class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <h2 id="modal-title" class="text-2xl font-bold text-slate-700 dark:text-slate-300">Orçamento</h2>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-red-600 text-2xl">&times;</button>
+            </header>
+            
+            <div class="overflow-y-auto p-4">
+                <!-- Conteúdo do App de Orçamento vai aqui -->
+                <section class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                        <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Entradas</h3>
+                        <p id="total-income" class="text-3xl font-bold text-green-500 mt-2">R$ 0,00</p>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                        <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saídas</h3>
+                        <p id="total-expense" class="text-3xl font-bold text-red-500 mt-2">R$ 0,00</p>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
+                        <h3 class="text-lg font-semibold text-slate-500 dark:text-slate-400">Saldo</h3>
+                        <p id="balance" class="text-3xl font-bold text-slate-700 dark:text-slate-200 mt-2">R$ 0,00</p>
+                    </div>
+                </section>
+                
+                <section class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8">
+                    <h3 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Adicionar Transação</h3>
+                    <form id="form" class="space-y-4">
+                         <div>
+                            <label for="description" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Descrição</label>
+                            <input type="text" id="description" placeholder="Ex: Salário, Aluguel" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="amount" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Valor (R$)</label>
+                            <input type="number" step="0.01" id="amount" placeholder="150,50" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
+                        </div>
+                        <button class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Adicionar Transação</button>
+                    </form>
+                </section>
+
+                <section class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Histórico de Entradas</h3>
+                        <ul id="income-list" class="space-y-3"></ul>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Histórico de Saídas</h3>
+                        <ul id="expense-list" class="space-y-3"></ul>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ▼▼▼ COLE AQUI O OBJETO firebaseConfig QUE VOCÊ COPIOU ▼▼▼
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+            projectId: "meu-orcamento-app-30e7f",
+            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
+            messagingSenderId: "660712250343",
+            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+        };
+        // ▲▲▲ COLE AQUI O OBJETO firebaseConfig QUE VOCÊ COPIOU ▲▲▲
+
+        const appId = "default-app-id";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null;
+        let unsubscribe = null;
+        let currentYear = new Date().getFullYear();
+        let currentMonth = null;
+
+        // DOM Elements
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const balanceEl = document.getElementById('balance');
+        const totalIncomeEl = document.getElementById('total-income');
+        const totalExpenseEl = document.getElementById('total-expense');
+        const incomeListEl = document.getElementById('income-list');
+        const expenseListEl = document.getElementById('expense-list');
+        const form = document.getElementById('form');
+        const descriptionInput = document.getElementById('description');
+        const amountInput = document.getElementById('amount');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const currentYearTitle = document.getElementById('current-year-title');
+        const prevYearBtn = document.getElementById('prev-year-btn');
+        const nextYearBtn = document.getElementById('next-year-btn');
+        const budgetModal = document.getElementById('budget-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const annualIncomeEl = document.getElementById('annual-income');
+        const annualExpenseEl = document.getElementById('annual-expense');
+        const annualBalanceEl = document.getElementById('annual-balance');
+
+
+        let transactions = [];
+        const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+        function formatCurrency(value) {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function updateSummary() {
+            const amounts = transactions.map(t => t.amount);
+            const totalIncome = amounts.filter(item => item > 0).reduce((acc, item) => (acc + item), 0);
+            const totalExpense = amounts.filter(item => item < 0).reduce((acc, item) => (acc + item), 0);
+            const balance = totalIncome + totalExpense;
+            totalIncomeEl.innerText = formatCurrency(totalIncome);
+            totalExpenseEl.innerText = formatCurrency(Math.abs(totalExpense));
+            balanceEl.innerText = formatCurrency(balance);
+        }
+
+        function addTransactionDOM(transaction) {
+            const { id, description, amount } = transaction;
+            const type = amount < 0 ? 'expense' : 'income';
+            const transactionEl = document.createElement('li');
+            transactionEl.classList.add('bg-white', 'dark:bg-slate-700', 'p-4', 'rounded-lg', 'shadow-sm', 'flex', 'justify-between', 'items-center');
+            const amountColor = type === 'income' ? 'text-green-600' : 'text-red-600';
+            transactionEl.innerHTML = `
+                <span class="font-medium text-slate-700 dark:text-slate-300">${description}</span>
+                <div class="flex items-center space-x-3">
+                    <span class="font-bold ${amountColor}">${formatCurrency(amount)}</span>
+                    <button onclick="window.removeTransaction('${id}')" class="text-slate-400 hover:text-red-600">&times;</button>
+                </div>
+            `;
+            const listEl = type === 'income' ? incomeListEl : expenseListEl;
+            listEl.appendChild(transactionEl);
+        }
+
+        function initUI() {
+            incomeListEl.innerHTML = '';
+            expenseListEl.innerHTML = '';
+            transactions.forEach(addTransactionDOM);
+            updateSummary();
+        }
+
+        async function handleAddTransaction(e) {
+            e.preventDefault();
+            const description = descriptionInput.value.trim();
+            const amount = parseFloat(amountInput.value.trim());
+            if (description === '' || isNaN(amount)) return;
+
+            const monthStr = (currentMonth + 1).toString().padStart(2, '0');
+            const transactionsCollection = collection(db, 'artifacts', appId, 'users', userId, currentYear.toString(), monthStr, 'transactions');
+            
+            await addDoc(transactionsCollection, {
+                description,
+                amount,
+                createdAt: serverTimestamp()
+            });
+            descriptionInput.value = '';
+            amountInput.value = '';
+        }
+
+        window.removeTransaction = async function(id) {
+            const monthStr = (currentMonth + 1).toString().padStart(2, '0');
+            const transactionRef = doc(db, 'artifacts', appId, 'users', userId, currentYear.toString(), monthStr, 'transactions', id);
+            await deleteDoc(transactionRef);
+        }
+
+        function listenToTransactions(year, month) {
+            if (unsubscribe) unsubscribe();
+            
+            const monthStr = (month + 1).toString().padStart(2, '0');
+            const collectionPath = collection(db, 'artifacts', appId, 'users', userId, year.toString(), monthStr, 'transactions');
+            const q = query(collectionPath, orderBy('createdAt', 'desc'));
+            
+            unsubscribe = onSnapshot(q, snapshot => {
+                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                initUI();
+            });
+        }
+
+        function openMonthModal(year, monthIndex) {
+            currentMonth = monthIndex;
+            currentYear = year;
+            modalTitle.innerText = `Orçamento de ${monthNames[monthIndex]} de ${year}`;
+            listenToTransactions(year, monthIndex);
+            budgetModal.classList.add('flex');
+        }
+
+        async function updateAnnualSummary(year) {
+            annualIncomeEl.innerText = 'Calculando...';
+            annualExpenseEl.innerText = 'Calculando...';
+            annualBalanceEl.innerText = 'Calculando...';
+
+            let totalAnnualIncome = 0;
+            let totalAnnualExpense = 0;
+
+            const monthPromises = [];
+            for (let month = 0; month < 12; month++) {
+                const monthStr = (month + 1).toString().padStart(2, '0');
+                const collectionPath = collection(db, 'artifacts', appId, 'users', userId, year.toString(), monthStr, 'transactions');
+                monthPromises.push(getDocs(collectionPath));
+            }
+
+            const monthlySnapshots = await Promise.all(monthPromises);
+
+            monthlySnapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    const amount = doc.data().amount || 0;
+                    if (amount > 0) {
+                        totalAnnualIncome += amount;
+                    } else {
+                        totalAnnualExpense += amount;
+                    }
+                });
+            });
+            
+            const totalAnnualBalance = totalAnnualIncome + totalAnnualExpense;
+
+            annualIncomeEl.innerText = formatCurrency(totalAnnualIncome);
+            annualExpenseEl.innerText = formatCurrency(Math.abs(totalAnnualExpense));
+            annualBalanceEl.innerText = formatCurrency(totalAnnualBalance);
+        }
+
+        function renderCalendar(year) {
+            currentYearTitle.innerText = year;
+            calendarGrid.innerHTML = '';
+            const today = new Date();
+            const thisYear = today.getFullYear();
+            const thisMonth = today.getMonth();
+
+            monthNames.forEach((name, index) => {
+                const card = document.createElement('div');
+                card.className = 'month-card bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center cursor-pointer';
+                if (year === thisYear && index === thisMonth) {
+                    card.classList.add('border-2', 'border-blue-500');
+                }
+                card.innerHTML = `<h3 class="text-xl font-bold">${name}</h3>`;
+                card.onclick = () => openMonthModal(year, index);
+                calendarGrid.appendChild(card);
+            });
+            
+            if(userId) {
+                updateAnnualSummary(year);
+            }
+        }
+        
+        prevYearBtn.addEventListener('click', () => {
+            currentYear--;
+            renderCalendar(currentYear);
+        });
+
+        nextYearBtn.addEventListener('click', () => {
+            currentYear++;
+            renderCalendar(currentYear);
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            budgetModal.classList.remove('flex');
+            if (unsubscribe) unsubscribe();
+            transactions = [];
+            initUI();
+        });
+
+        async function authenticateUser() {
+            try {
+                const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (authToken) {
+                    await signInWithCustomToken(auth, authToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Erro na autenticação:", error);
+                loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação.</p>`;
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                renderCalendar(currentYear);
+                loadingOverlay.style.display = 'none';
+            } else {
+                authenticateUser();
+            }
+        });
+
+        form.addEventListener('submit', handleAddTransaction);
+    </script>
+</body>
+</html>

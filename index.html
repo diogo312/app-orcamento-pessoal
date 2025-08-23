@@ -188,12 +188,12 @@
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-            projectId: "meu-orcamento-app-30e7f",
-            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-            messagingSenderId: "660712250343",
-            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+                apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+                authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+                projectId: "meu-orcamento-app-30e7f",
+                storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
+                messagingSenderId: "660712250343",
+                appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
         };
         
         const app = initializeApp(firebaseConfig);
@@ -201,7 +201,6 @@
         const auth = getAuth(app);
 
         let userIdentifier = null; // UID do usuário
-        let username = null; // Nome de usuário
         let allTransactions = []; 
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
@@ -309,17 +308,9 @@
             if (user) {
                 userIdentifier = user.uid;
                 
-                const userProfileRef = doc(db, 'users', user.uid);
-                const userProfileSnap = await getDoc(userProfileRef);
-                if (userProfileSnap.exists()) {
-                    username = userProfileSnap.data().username;
-                } else {
-                    username = "usuario"; 
-                }
-
                 authView.style.display = 'none';
                 calendarView.style.display = 'block';
-                const transactionsCollection = collection(db, 'budgets', userIdentifier, username, 'transactions');
+                const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
                 const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
                 onSnapshot(q, (snapshot) => {
                     allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -328,7 +319,6 @@
                 });
             } else {
                 userIdentifier = null;
-                username = null;
                 allTransactions = [];
                 authView.style.display = 'flex';
                 calendarView.style.display = 'none';
@@ -394,7 +384,7 @@
                 amount = Math.abs(amount);
             }
 
-            const transactionsCollection = collection(db, 'budgets', userIdentifier, username, 'transactions');
+            const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
@@ -409,7 +399,7 @@
         }
 
         window.removeTransaction = async function(id) {
-            const transactionRef = doc(db, 'budgets', userIdentifier, username, 'transactions', id);
+            const transactionRef = doc(db, 'budgets', userIdentifier, 'transactions', id);
             await deleteDoc(transactionRef);
         }
         

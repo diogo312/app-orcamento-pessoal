@@ -25,6 +25,16 @@
         .theme-switch-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: #64748b; }
         .theme-switch-toggle { width: 24px; height: 24px; border-radius: 50%; background-color: white; transform: translateX(0); transition: transform 0.3s ease; }
         .dark .theme-switch-toggle { transform: translateX(32px); }
+        .radio-label input[type="radio"] { display: none; }
+        .radio-label span {
+            padding: 8px 16px; border-radius: 9999px; cursor: pointer;
+            transition: all 0.2s ease-in-out; font-weight: 500;
+            border: 1px solid #e5e7eb;
+        }
+        .dark .radio-label span { border-color: #475569; }
+        .radio-label input[type="radio"]:checked + span { color: white; border-color: transparent; }
+        #type-income:checked + span { background-color: #22c55e; }
+        #type-expense:checked + span { background-color: #ef4444; }
     </style>
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -82,7 +92,6 @@
                 </button>
             </div>
         </header>
-        <!-- Restante do HTML do calendário e modal... -->
         <div class="flex justify-between items-center mb-6">
             <button id="prev-year-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><i class="fas fa-chevron-left"></i></button>
             <h2 id="current-year-title" class="text-2xl font-bold">2025</h2>
@@ -110,7 +119,6 @@
 
     <!-- MODAL DO ORÇAMENTO MENSAL -->
     <div id="budget-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center p-4">
-        <!-- Conteúdo do modal... -->
         <div class="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col">
             <header class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                 <h2 id="modal-title" class="text-2xl font-bold text-slate-700 dark:text-slate-300">Orçamento</h2>
@@ -142,6 +150,16 @@
                             <label for="amount" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Valor (R$)</label>
                             <input type="number" step="0.01" id="amount" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
                         </div>
+                        <div class="flex justify-center space-x-4 pt-2">
+                            <label class="radio-label">
+                                <input type="radio" id="type-income" name="type" value="income" checked>
+                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Entrada</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" id="type-expense" name="type" value="expense">
+                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Saída</span>
+                            </label>
+                        </div>
                         <button class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Adicionar Transação</button>
                     </form>
                 </section>
@@ -166,20 +184,19 @@
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-            projectId: "meu-orcamento-app-30e7f",
-            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-            messagingSenderId: "660712250343",
-            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+                apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+                authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+                projectId: "meu-orcamento-app-30e7f",
+                storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
+                messagingSenderId: "660712250343",
+                appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // ... (resto do seu script JS)
-        let userId = null;
+        let userIdentifier = null; // Agora será o e-mail
         let allTransactions = []; 
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
@@ -247,7 +264,23 @@
                     await createUserWithEmailAndPassword(auth, email, password);
                 }
             } catch (error) {
-                authError.innerText = "Email ou senha inválidos.";
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        authError.innerText = 'Este e-mail já está em uso. Tente fazer login.';
+                        break;
+                    case 'auth/weak-password':
+                        authError.innerText = 'A senha deve ter pelo menos 6 caracteres.';
+                        break;
+                    case 'auth/invalid-email':
+                        authError.innerText = 'O formato do e-mail é inválido.';
+                        break;
+                    case 'auth/invalid-credential':
+                         authError.innerText = 'E-mail ou senha incorretos.';
+                         break;
+                    default:
+                        authError.innerText = 'Ocorreu um erro. Tente novamente.';
+                        break;
+                }
                 console.error("Erro de autenticação:", error.message);
             }
         });
@@ -257,11 +290,11 @@
         });
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userId = user.uid;
+            if (user && user.email) {
+                userIdentifier = user.email;
                 authView.style.display = 'none';
                 calendarView.style.display = 'block';
-                const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
+                const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
                 const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
                 onSnapshot(q, (snapshot) => {
                     allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -269,7 +302,7 @@
                     loadingOverlay.style.display = 'none';
                 });
             } else {
-                userId = null;
+                userIdentifier = null;
                 allTransactions = [];
                 authView.style.display = 'flex';
                 calendarView.style.display = 'none';
@@ -284,7 +317,6 @@
         });
         
         // --- APP LOGIC ---
-        // (As outras funções do app como formatCurrency, updateSummary, etc. permanecem aqui)
         function formatCurrency(value) {
             return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
@@ -322,15 +354,26 @@
         async function handleAddTransaction(e) {
             e.preventDefault();
             const description = descriptionInput.value.trim();
-            const amount = parseFloat(amountInput.value.trim());
-            if (description === '' || isNaN(amount)) return;
+            let amount = parseFloat(amountInput.value.trim());
+            const type = document.querySelector('input[name="type"]:checked').value;
 
-            const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
+            if (description === '' || isNaN(amount) || amount <= 0) {
+                alert('Por favor, preencha a descrição e um valor positivo.');
+                return;
+            }
+
+            if (type === 'expense') {
+                amount = -Math.abs(amount);
+            } else {
+                amount = Math.abs(amount);
+            }
+
+            const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
                 amount,
-                type: amount > 0 ? 'income' : 'expense',
+                type: type,
                 year: currentYear,
                 month: currentMonth,
                 createdAt: serverTimestamp()
@@ -340,7 +383,7 @@
         }
 
         window.removeTransaction = async function(id) {
-            const transactionRef = doc(db, 'budgets', userId, 'transactions', id);
+            const transactionRef = doc(db, 'budgets', userIdentifier, 'transactions', id);
             await deleteDoc(transactionRef);
         }
         
@@ -388,7 +431,7 @@
                 calendarGrid.appendChild(card);
             });
             
-            if(userId) {
+            if(userIdentifier) {
                 updateAnnualSummary(year);
             }
         }

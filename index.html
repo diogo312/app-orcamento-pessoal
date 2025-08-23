@@ -16,44 +16,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .month-card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .month-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        #budget-modal { display: none; transition: opacity 0.3s ease; }
-        #budget-modal.flex { display: flex; }
-        .theme-switch {
-            display: inline-flex; align-items: center;
-            background-color: #e2e8f0; border-radius: 9999px; padding: 4px;
-            cursor: pointer; position: relative;
-        }
+        .month-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .month-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        #budget-modal, #auth-view { display: none; }
+        #budget-modal.flex, #auth-view.flex { display: flex; }
+        .theme-switch { display: inline-flex; align-items: center; background-color: #e2e8f0; border-radius: 9999px; padding: 4px; cursor: pointer; position: relative; }
         .dark .theme-switch { background-color: #334155; }
-        .theme-switch-icon {
-            width: 24px; height: 24px; display: flex;
-            align-items: center; justify-content: center;
-            color: #64748b;
-        }
-        .theme-switch-toggle {
-            width: 24px; height: 24px; border-radius: 50%;
-            background-color: white;
-            transform: translateX(0);
-            transition: transform 0.3s ease;
-        }
+        .theme-switch-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: #64748b; }
+        .theme-switch-toggle { width: 24px; height: 24px; border-radius: 50%; background-color: white; transform: translateX(0); transition: transform 0.3s ease; }
         .dark .theme-switch-toggle { transform: translateX(32px); }
-        /* Estilos para os botões de rádio */
-        .radio-label input[type="radio"] { display: none; }
-        .radio-label span {
-            padding: 8px 16px; border-radius: 9999px; cursor: pointer;
-            transition: all 0.2s ease-in-out; font-weight: 500;
-            border: 1px solid #e5e7eb;
-        }
-        .dark .radio-label span { border-color: #475569; }
-        .radio-label input[type="radio"]:checked + span { color: white; border-color: transparent; }
-        #type-income:checked + span { background-color: #22c55e; }
-        #type-expense:checked + span { background-color: #ef4444; }
     </style>
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -67,34 +38,57 @@
 
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-80 flex flex-col items-center justify-center z-50">
         <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-white text-lg mt-4">Conectando...</p>
+        <p class="text-white text-lg mt-4">Carregando...</p>
+    </div>
+
+    <!-- TELA DE LOGIN E CADASTRO -->
+    <div id="auth-view" class="min-h-screen items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg">
+            <h2 id="auth-title" class="text-3xl font-bold text-center text-slate-700 dark:text-slate-300 mb-6">Login</h2>
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Email</label>
+                    <input type="email" id="email" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Senha</label>
+                    <input type="password" id="password" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
+                </div>
+                <p id="auth-error" class="text-red-500 text-sm text-center h-4"></p>
+                <button id="auth-submit-btn" type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Entrar</button>
+            </form>
+            <p class="text-center text-sm text-slate-500 mt-6">
+                <span id="toggle-text">Não tem uma conta?</span>
+                <button id="toggle-auth-mode-btn" class="font-semibold text-blue-600 hover:underline">Cadastre-se</button>
+            </p>
+        </div>
     </div>
 
     <!-- TELA PRINCIPAL DO CALENDÁRIO -->
-    <div id="calendar-view" class="container mx-auto p-4 md:p-8 max-w-4xl">
+    <div id="calendar-view" class="container mx-auto p-4 md:p-8 max-w-4xl hidden">
         <header class="mb-8 flex justify-between items-center">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3">
                 <i class="fa-solid fa-calendar-alt text-blue-600"></i>
                 Visão Anual
             </h1>
-            <div id="theme-switch" class="theme-switch">
-                <div class="theme-switch-icon"><i class="fas fa-sun"></i></div>
-                <div class="theme-switch-icon"><i class="fas fa-moon"></i></div>
-                <div class="theme-switch-toggle absolute"></div>
+            <div class="flex items-center gap-4">
+                <div id="theme-switch" class="theme-switch">
+                    <div class="theme-switch-icon"><i class="fas fa-sun"></i></div>
+                    <div class="theme-switch-icon"><i class="fas fa-moon"></i></div>
+                    <div class="theme-switch-toggle absolute"></div>
+                </div>
+                <button id="logout-btn" class="text-slate-500 hover:text-red-500" title="Sair">
+                    <i class="fa-solid fa-right-from-bracket fa-lg"></i>
+                </button>
             </div>
         </header>
-
+        <!-- Restante do HTML do calendário e modal... -->
         <div class="flex justify-between items-center mb-6">
             <button id="prev-year-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><i class="fas fa-chevron-left"></i></button>
             <h2 id="current-year-title" class="text-2xl font-bold">2025</h2>
             <button id="next-year-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><i class="fas fa-chevron-right"></i></button>
         </div>
-
-        <div id="calendar-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <!-- Os meses serão gerados aqui pelo JS -->
-        </div>
-
-        <!-- PAINEL DE RESUMO ANUAL -->
+        <div id="calendar-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
         <section id="annual-summary" class="mt-12">
             <h2 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Resumo do Ano</h2>
             <div class="grid md:grid-cols-3 gap-6">
@@ -116,12 +110,12 @@
 
     <!-- MODAL DO ORÇAMENTO MENSAL -->
     <div id="budget-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center p-4">
+        <!-- Conteúdo do modal... -->
         <div class="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col">
             <header class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                 <h2 id="modal-title" class="text-2xl font-bold text-slate-700 dark:text-slate-300">Orçamento</h2>
                 <button id="close-modal-btn" class="text-slate-400 hover:text-red-600 text-2xl">&times;</button>
             </header>
-            
             <div class="overflow-y-auto p-4">
                 <section class="grid md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg text-center">
@@ -137,33 +131,20 @@
                         <p id="balance" class="text-3xl font-bold text-slate-700 dark:text-slate-200 mt-2">R$ 0,00</p>
                     </div>
                 </section>
-                
                 <section class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg mb-8">
                     <h3 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Adicionar Transação</h3>
                     <form id="form" class="space-y-4">
                          <div>
                             <label for="description" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Descrição</label>
-                            <input type="text" id="description" placeholder="Ex: Salário, Aluguel" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
+                            <input type="text" id="description" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
                         </div>
                         <div>
                             <label for="amount" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Valor (R$)</label>
-                            <input type="number" step="0.01" id="amount" placeholder="150,50" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
-                        </div>
-                        <!-- **CORREÇÃO APLICADA AQUI** -->
-                        <div class="flex justify-center space-x-4 pt-2">
-                            <label class="radio-label">
-                                <input type="radio" id="type-income" name="type" value="income" checked>
-                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Entrada</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" id="type-expense" name="type" value="expense">
-                                <span class="bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">Saída</span>
-                            </label>
+                            <input type="number" step="0.01" id="amount" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
                         </div>
                         <button class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Adicionar Transação</button>
                     </form>
                 </section>
-
                 <section class="grid md:grid-cols-2 gap-6">
                     <div>
                         <h3 class="text-2xl font-bold mb-4 text-slate-700 dark:text-slate-300">Histórico de Entradas</h3>
@@ -181,29 +162,43 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
-              apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-              authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-              projectId: "meu-orcamento-app-30e7f",
-              storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-              messagingSenderId: "660712250343",
-              appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
+            apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
+            authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
+            projectId: "meu-orcamento-app-30e7f",
+            storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
+            messagingSenderId: "660712250343",
+            appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // ... (resto do seu script JS)
         let userId = null;
         let allTransactions = []; 
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
+        let isLoginMode = true;
 
         // DOM Elements
         const loadingOverlay = document.getElementById('loading-overlay');
+        const authView = document.getElementById('auth-view');
+        const calendarView = document.getElementById('calendar-view');
+        const authForm = document.getElementById('auth-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const authTitle = document.getElementById('auth-title');
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        const toggleText = document.getElementById('toggle-text');
+        const toggleAuthModeBtn = document.getElementById('toggle-auth-mode-btn');
+        const authError = document.getElementById('auth-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        
         const balanceEl = document.getElementById('balance');
         const totalIncomeEl = document.getElementById('total-income');
         const totalExpenseEl = document.getElementById('total-expense');
@@ -227,6 +222,69 @@
 
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+        // --- AUTH LOGIC ---
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            authTitle.innerText = isLoginMode ? 'Login' : 'Cadastre-se';
+            authSubmitBtn.innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
+            toggleText.innerText = isLoginMode ? 'Não tem uma conta?' : 'Já tem uma conta?';
+            toggleAuthModeBtn.innerText = isLoginMode ? 'Cadastre-se' : 'Entrar';
+            authError.innerText = '';
+        }
+
+        toggleAuthModeBtn.addEventListener('click', toggleAuthMode);
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.innerText = '';
+
+            try {
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                authError.innerText = "Email ou senha inválidos.";
+                console.error("Erro de autenticação:", error.message);
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                authView.style.display = 'none';
+                calendarView.style.display = 'block';
+                const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
+                const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
+                onSnapshot(q, (snapshot) => {
+                    allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderCalendar(currentYear);
+                    loadingOverlay.style.display = 'none';
+                });
+            } else {
+                userId = null;
+                allTransactions = [];
+                authView.style.display = 'flex';
+                calendarView.style.display = 'none';
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // --- THEME LOGIC ---
+        themeSwitch.addEventListener('click', () => {
+            htmlEl.classList.toggle('dark');
+            localStorage.setItem('theme', htmlEl.classList.contains('dark') ? 'dark' : 'light');
+        });
+        
+        // --- APP LOGIC ---
+        // (As outras funções do app como formatCurrency, updateSummary, etc. permanecem aqui)
         function formatCurrency(value) {
             return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
@@ -264,27 +322,15 @@
         async function handleAddTransaction(e) {
             e.preventDefault();
             const description = descriptionInput.value.trim();
-            let amount = parseFloat(amountInput.value.trim());
-            const type = document.querySelector('input[name="type"]:checked').value;
-
-            if (description === '' || isNaN(amount) || amount <= 0) {
-                alert('Por favor, preencha a descrição e um valor positivo.');
-                return;
-            }
-
-            // **CORREÇÃO APLICADA AQUI**
-            if (type === 'expense') {
-                amount = -Math.abs(amount); // Garante que o valor seja negativo
-            } else {
-                amount = Math.abs(amount); // Garante que o valor seja positivo
-            }
+            const amount = parseFloat(amountInput.value.trim());
+            if (description === '' || isNaN(amount)) return;
 
             const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
                 amount,
-                type: type,
+                type: amount > 0 ? 'income' : 'expense',
                 year: currentYear,
                 month: currentMonth,
                 createdAt: serverTimestamp()
@@ -359,47 +405,6 @@
 
         closeModalBtn.addEventListener('click', () => {
             budgetModal.classList.remove('flex');
-        });
-
-        themeSwitch.addEventListener('click', () => {
-            if (htmlEl.classList.contains('dark')) {
-                htmlEl.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            } else {
-                htmlEl.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            }
-        });
-
-        async function authenticateUser() {
-            try {
-                const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                if (authToken) {
-                    await signInWithCustomToken(auth, authToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Erro na autenticação:", error);
-                loadingOverlay.innerHTML = `<p class="text-red-500 text-lg">Falha na autenticação.</p>`;
-            }
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userId = user.uid;
-                const transactionsCollection = collection(db, 'budgets', userId, 'transactions');
-                const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
-
-                onSnapshot(q, (snapshot) => {
-                    allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderCalendar(currentYear);
-                    loadingOverlay.style.display = 'none';
-                });
-
-            } else {
-                authenticateUser();
-            }
         });
 
         form.addEventListener('submit', handleAddTransaction);

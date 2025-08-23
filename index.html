@@ -56,6 +56,10 @@
         <div class="w-full max-w-md bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg">
             <h2 id="auth-title" class="text-3xl font-bold text-center text-slate-700 dark:text-slate-300 mb-6">Login</h2>
             <form id="auth-form" class="space-y-4">
+                <div id="username-field" class="hidden">
+                    <label for="username" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Nome de Usuário</label>
+                    <input type="text" id="username" placeholder="Ex: joaosilva" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg">
+                </div>
                 <div>
                     <label for="email" class="block text-sm font-medium text-slate-600 dark:text-slate-400">Email</label>
                     <input type="email" id="email" class="mt-1 block w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg" required>
@@ -181,22 +185,18 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        const firebaseConfig = {
-                apiKey: "AIzaSyD0KGwdenQoAIYFZIcktEb3wzFuoBUf6r0",
-                authDomain: "meu-orcamento-app-30e7f.firebaseapp.com",
-                projectId: "meu-orcamento-app-30e7f",
-                storageBucket: "meu-orcamento-app-30e7f.firebasestorage.app",
-                messagingSenderId: "660712250343",
-                appId: "1:660712250343:web:92458f7a4eb2e5759e3b42"
-        };
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {};
         
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let userIdentifier = null; // Agora será o e-mail
+        let userIdentifier = null; // UID do usuário
+        let username = null; // Nome de usuário
         let allTransactions = []; 
         let currentYear = new Date().getFullYear();
         let currentMonth = null;
@@ -209,6 +209,8 @@
         const authForm = document.getElementById('auth-form');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
+        const usernameField = document.getElementById('username-field');
+        const usernameInput = document.getElementById('username');
         const authTitle = document.getElementById('auth-title');
         const authSubmitBtn = document.getElementById('auth-submit-btn');
         const toggleText = document.getElementById('toggle-text');
@@ -246,6 +248,7 @@
             authSubmitBtn.innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
             toggleText.innerText = isLoginMode ? 'Não tem uma conta?' : 'Já tem uma conta?';
             toggleAuthModeBtn.innerText = isLoginMode ? 'Cadastre-se' : 'Entrar';
+            usernameField.classList.toggle('hidden', isLoginMode);
             authError.innerText = '';
         }
 
@@ -255,13 +258,21 @@
             e.preventDefault();
             const email = emailInput.value;
             const password = passwordInput.value;
+            const usernameValue = usernameInput.value.trim();
             authError.innerText = '';
 
             try {
                 if (isLoginMode) {
                     await signInWithEmailAndPassword(auth, email, password);
                 } else {
-                    await createUserWithEmailAndPassword(auth, email, password);
+                    if (!usernameValue) {
+                        authError.innerText = 'Por favor, insira um nome de usuário.';
+                        return;
+                    }
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+                    const userProfileRef = doc(db, 'users', user.uid);
+                    await setDoc(userProfileRef, { username: usernameValue, email: user.email });
                 }
             } catch (error) {
                 switch (error.code) {
@@ -289,12 +300,21 @@
             await signOut(auth);
         });
 
-        onAuthStateChanged(auth, (user) => {
-            if (user && user.email) {
-                userIdentifier = user.email;
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userIdentifier = user.uid;
+                
+                const userProfileRef = doc(db, 'users', user.uid);
+                const userProfileSnap = await getDoc(userProfileRef);
+                if (userProfileSnap.exists()) {
+                    username = userProfileSnap.data().username;
+                } else {
+                    username = "usuario"; 
+                }
+
                 authView.style.display = 'none';
                 calendarView.style.display = 'block';
-                const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
+                const transactionsCollection = collection(db, 'budgets', userIdentifier, username, 'transactions');
                 const q = query(transactionsCollection, orderBy('createdAt', 'desc'));
                 onSnapshot(q, (snapshot) => {
                     allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -303,6 +323,7 @@
                 });
             } else {
                 userIdentifier = null;
+                username = null;
                 allTransactions = [];
                 authView.style.display = 'flex';
                 calendarView.style.display = 'none';
@@ -368,7 +389,7 @@
                 amount = Math.abs(amount);
             }
 
-            const transactionsCollection = collection(db, 'budgets', userIdentifier, 'transactions');
+            const transactionsCollection = collection(db, 'budgets', userIdentifier, username, 'transactions');
             
             await addDoc(transactionsCollection, {
                 description,
@@ -383,7 +404,7 @@
         }
 
         window.removeTransaction = async function(id) {
-            const transactionRef = doc(db, 'budgets', userIdentifier, 'transactions', id);
+            const transactionRef = doc(db, 'budgets', userIdentifier, username, 'transactions', id);
             await deleteDoc(transactionRef);
         }
         
